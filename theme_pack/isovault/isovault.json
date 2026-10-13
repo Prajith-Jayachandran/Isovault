@@ -1,0 +1,14 @@
+{
+    "theme": {
+        "file": "/isovault/theme/theme.txt",
+        "gfxmode": "1920x1080",
+        "display_mode": "GUI",
+        "ventoy_left": "-100%",
+        "ventoy_top": "-100%",
+        "ventoy_color": "#00000000",
+        "fonts": [
+            "/isovault/theme/fonts/SpaceGrotesk-16.pf2",
+            "/isovault/theme/fonts/SpaceGrotesk-18.pf2"
+        ]
+    }
+}

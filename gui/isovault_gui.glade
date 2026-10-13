@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<interface>
+  <requires lib="gtk+" version="3.20"/>
+  <object class="GtkWindow" id="main_window">
+    <property name="can_focus">False</property>
+    <property name="title">IsoVault</property>
+    <property name="default_width">520</property>
+    <property name="default_height">440</property>
+    <property name="resizable">False</property>
+    <property name="window_position">center</property>
+    <child type="titlebar">
+      <object class="GtkHeaderBar" id="header_bar">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="title">IsoVault</property>
+        <property name="subtitle">Multiboot USB Creator</property>
+        <property name="show_close_button">True</property>
+      </object>
+    </child>
+    <child>
+      <object class="GtkBox" id="main_box">
+        <property name="visible">True</property>
+        <property name="can_focus">False</property>
+        <property name="orientation">vertical</property>
+        <property name="spacing">12</property>
+        <property name="margin_left">16</property>
+        <property name="margin_right">16</property>
+        <property name="margin_top">12</property>
+        <property name="margin_bottom">12</property>
+
+        <!-- Device Selection -->
+        <child>
+          <object class="GtkFrame" id="dev_frame">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label">Target USB Device</property>
+            <child>
+              <object class="GtkBox" id="dev_box">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="spacing">8</property>
+                <property name="margin_left">10</property>
+                <property name="margin_right">10</property>
+                <property name="margin_top">8</property>
+                <property name="margin_bottom">8</property>
+                <child>
+                  <object class="GtkComboBoxText" id="dev_combo">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="hexpand">True</property>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkButton" id="refresh_btn">
+                    <property name="label">Refresh</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Status Card -->
+        <child>
+          <object class="GtkFrame" id="status_frame">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label">Status &amp; Version</property>
+            <child>
+              <object class="GtkGrid" id="status_grid">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="row_spacing">6</property>
+                <property name="column_spacing">16</property>
+                <property name="margin_left">12</property>
+                <property name="margin_right">12</property>
+                <property name="margin_top">8</property>
+                <property name="margin_bottom">8</property>
+                <child>
+                  <object class="GtkLabel" id="lbl_dev_status">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label">IsoVault on Device:</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="device_ver_label">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label">None</property>
+                    <property name="xalign">0</property>
+                    <attributes>
+                      <attribute name="weight" value="bold"/>
+                    </attributes>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">0</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="lbl_pkg_status">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label">IsoVault in Package:</property>
+                    <property name="xalign">0</property>
+                  </object>
+                  <packing>
+                    <property name="left_attach">0</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+                <child>
+                  <object class="GtkLabel" id="package_ver_label">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="label">1.1.18</property>
+                    <property name="xalign">0</property>
+                    <attributes>
+                      <attribute name="weight" value="bold"/>
+                    </attributes>
+                  </object>
+                  <packing>
+                    <property name="left_attach">1</property>
+                    <property name="top_attach">1</property>
+                  </packing>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Options Frame -->
+        <child>
+          <object class="GtkFrame" id="options_frame">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="label">Configuration Options</property>
+            <child>
+              <object class="GtkBox" id="options_box">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="orientation">vertical</property>
+                <property name="spacing">6</property>
+                <property name="margin_left">12</property>
+                <property name="margin_right">12</property>
+                <property name="margin_top">8</property>
+                <property name="margin_bottom">8</property>
+                <child>
+                  <object class="GtkBox" id="style_box">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="spacing">16</property>
+                    <child>
+                      <object class="GtkLabel" id="lbl_part_style">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label">Partition Scheme:</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioButton" id="radio_mbr">
+                        <property name="label">MBR (BIOS + UEFI)</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="active">True</property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkRadioButton" id="radio_gpt">
+                        <property name="label">GPT (UEFI)</property>
+                        <property name="visible">True</property>
+                        <property name="can_focus">True</property>
+                        <property name="group">radio_mbr</property>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkBox" id="fs_box">
+                    <property name="visible">True</property>
+                    <property name="can_focus">False</property>
+                    <property name="spacing">16</property>
+                    <child>
+                      <object class="GtkLabel" id="lbl_fs_type">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <property name="label">Data Filesystem:  </property>
+                      </object>
+                    </child>
+                    <child>
+                      <object class="GtkComboBoxText" id="fs_combo">
+                        <property name="visible">True</property>
+                        <property name="can_focus">False</property>
+                        <items>
+                          <item id="exfat">exFAT (Recommended for files &gt; 4GB)</item>
+                          <item id="fat32">FAT32</item>
+                        </items>
+                      </object>
+                    </child>
+                  </object>
+                </child>
+                <child>
+                  <object class="GtkCheckButton" id="show_all_check">
+                    <property name="label">Show all devices (include internal drives)</property>
+                    <property name="visible">True</property>
+                    <property name="can_focus">True</property>
+                  </object>
+                </child>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Action Buttons -->
+        <child>
+          <object class="GtkBox" id="action_box">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="spacing">20</property>
+            <property name="halign">center</property>
+            <property name="margin_top">6</property>
+            <property name="margin_bottom">6</property>
+            <child>
+              <object class="GtkButton" id="install_btn">
+                <property name="label">Install</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="width_request">130</property>
+                <property name="height_request">40</property>
+                <style>
+                  <class name="destructive-action"/>
+                </style>
+              </object>
+            </child>
+            <child>
+              <object class="GtkButton" id="update_btn">
+                <property name="label">Update</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="width_request">130</property>
+                <property name="height_request">40</property>
+                <style>
+                  <class name="suggested-action"/>
+                </style>
+              </object>
+            </child>
+          </object>
+        </child>
+
+        <!-- Progress and Status -->
+        <child>
+          <object class="GtkBox" id="progress_box">
+            <property name="visible">True</property>
+            <property name="can_focus">False</property>
+            <property name="orientation">vertical</property>
+            <property name="spacing">4</property>
+            <child>
+              <object class="GtkProgressBar" id="progress_bar">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="show_text">True</property>
+                <property name="fraction">0.0</property>
+              </object>
+            </child>
+            <child>
+              <object class="GtkLabel" id="status_label">
+                <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="label">Ready</property>
+                <property name="xalign">0</property>
+              </object>
+            </child>
+          </object>
+        </child>
+      </object>
+    </child>
+  </object>
+</interface>

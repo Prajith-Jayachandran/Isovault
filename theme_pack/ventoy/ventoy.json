@@ -1,0 +1,14 @@
+{
+    "theme": {
+        "file": "/ventoy/theme/theme.txt",
+        "gfxmode": "1920x1080",
+        "display_mode": "GUI",
+        "ventoy_left": "-100%",
+        "ventoy_top": "-100%",
+        "ventoy_color": "#00000000",
+        "fonts": [
+            "/ventoy/theme/fonts/SpaceGrotesk-16.pf2",
+            "/ventoy/theme/fonts/SpaceGrotesk-18.pf2"
+        ]
+    }
+}
