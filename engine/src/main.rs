@@ -2,6 +2,8 @@ use clap::{Parser, Subcommand};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::exit;
+use std::thread;
+use std::time::Duration;
 
 mod deps;
 mod device;
@@ -69,6 +71,10 @@ enum Commands {
         #[arg(long, default_value = "/home/prajithj/isovault/theme_pack")]
         theme_dir: PathBuf,
 
+        /// Custom path to EFI template directory containing master grub.cfg
+        #[arg(long, default_value = "/home/prajithj/isovault/efi_pack")]
+        efi_dir: PathBuf,
+
         /// Output progress in JSON format
         #[arg(short, long)]
         json: bool,
@@ -87,6 +93,10 @@ enum Commands {
         /// Custom path to boot partition image
         #[arg(long, default_value = "/home/prajithj/isovault/isovault.disk.img.xz")]
         img_path: PathBuf,
+
+        /// Custom path to EFI template directory containing master grub.cfg
+        #[arg(long, default_value = "/home/prajithj/isovault/efi_pack")]
+        efi_dir: PathBuf,
 
         /// Output progress in JSON format
         #[arg(short, long)]
@@ -219,6 +229,54 @@ fn init_part1_theme(part1_dev: &str, theme_pack_dir: &Path, reporter: &Reporter)
     Ok(())
 }
 
+fn sync_part2_efi(part2_dev: &str, efi_dir: &Path, reporter: &Reporter) -> Result<(), String> {
+    reporter.report(92, "EFI Template", "Applying master GRUB configuration from template...", "running");
+    let mount_dir = Path::new("/tmp/isovault_efi_init");
+    let _ = fs::create_dir_all(mount_dir);
+    let _ = std::process::Command::new("umount").args(["-l", "/tmp/isovault_efi_init"]).output();
+
+    // Give kernel a moment to refresh partition nodes
+    let _ = std::process::Command::new("partprobe").arg(part2_dev).output();
+    let _ = std::process::Command::new("udevadm").args(["settle"]).output();
+    thread::sleep(Duration::from_millis(300));
+
+    let mount_status = std::process::Command::new("mount")
+        .args([part2_dev, "/tmp/isovault_efi_init"])
+        .status();
+
+    if let Ok(status) = mount_status {
+        if status.success() {
+            // Resolve efi_dir (handle symlink /home/prajithj/isovault vs /home/prajithj/Isovault)
+            let actual_efi_dir = if efi_dir.exists() {
+                efi_dir.to_path_buf()
+            } else {
+                PathBuf::from("/home/prajithj/Isovault/efi_pack")
+            };
+
+            let src_grub_cfg = actual_efi_dir.join("grub/grub.cfg");
+            let dst_grub_dir = mount_dir.join("grub");
+            if src_grub_cfg.exists() {
+                let _ = fs::create_dir_all(&dst_grub_dir);
+                let _ = fs::copy(&src_grub_cfg, dst_grub_dir.join("grub.cfg"));
+            }
+
+            let src_theme = actual_efi_dir.join("grub/themes");
+            if src_theme.exists() {
+                let dst_theme = dst_grub_dir.join("themes");
+                let _ = fs::create_dir_all(&dst_theme);
+                let _ = std::process::Command::new("cp")
+                    .args(["-r", src_theme.to_str().unwrap(), dst_grub_dir.to_str().unwrap()])
+                    .status();
+            }
+
+            let _ = std::process::Command::new("sync").status();
+            let _ = std::process::Command::new("umount").args(["-l", "/tmp/isovault_efi_init"]).output();
+        }
+    }
+
+    Ok(())
+}
+
 fn handle_install(
     device: String,
     style: String,
@@ -227,6 +285,7 @@ fn handle_install(
     boot_dir: PathBuf,
     img_path: PathBuf,
     theme_dir: PathBuf,
+    efi_dir: PathBuf,
     json: bool,
 ) {
     let reporter = Reporter::new(json);
@@ -306,6 +365,9 @@ fn handle_install(
         exit(1);
     }
 
+    // 5. Apply master EFI template (grub.cfg, themes)
+    let _ = sync_part2_efi(&geom.part2_dev, &efi_dir, &reporter);
+
     reporter.report(
         100,
         "Success",
@@ -317,7 +379,7 @@ fn handle_install(
     );
 }
 
-fn handle_update(device: String, boot_dir: PathBuf, img_path: PathBuf, json: bool) {
+fn handle_update(device: String, boot_dir: PathBuf, img_path: PathBuf, efi_dir: PathBuf, json: bool) {
     let reporter = Reporter::new(json);
     reporter.report(5, "Validating", &format!("Verifying existing installation on {}...", device), "running");
 
@@ -378,6 +440,9 @@ fn handle_update(device: String, boot_dir: PathBuf, img_path: PathBuf, json: boo
         exit(1);
     }
 
+    // Apply master EFI template (grub.cfg, themes)
+    let _ = sync_part2_efi(&part2_dev, &efi_dir, &reporter);
+
     reporter.report(
         100,
         "Success",
@@ -422,18 +487,20 @@ fn main() {
             boot_dir,
             img_path,
             theme_dir,
+            efi_dir,
             json,
         } => {
-            handle_install(device, style, fs, reserve, boot_dir, img_path, theme_dir, json);
+            handle_install(device, style, fs, reserve, boot_dir, img_path, theme_dir, efi_dir, json);
         }
 
         Commands::Update {
             device,
             boot_dir,
             img_path,
+            efi_dir,
             json,
         } => {
-            handle_update(device, boot_dir, img_path, json);
+            handle_update(device, boot_dir, img_path, efi_dir, json);
         }
 
         Commands::CheckDeps { install } => {

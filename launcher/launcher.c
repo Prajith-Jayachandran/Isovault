@@ -4,7 +4,7 @@
 #include <string.h>
 #include <sys/types.h>
 
-#define GUI_BIN "/home/prajithj/isovault/gui/isovault_gui"
+#define GUI_BIN "/home/prajithj/Isovault/gui/isovault_gui"
 
 int main(int argc, char *argv[]) {
     // If already root, execute GUI directly
@@ -15,27 +15,25 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Preserve DISPLAY and WAYLAND_DISPLAY if available
+    // Auto-authorize local root to connect to user's X11/XWayland display
+    system("xhost +si:localuser:root >/dev/null 2>&1");
+
     const char *display = getenv("DISPLAY");
-    const char *wayland = getenv("WAYLAND_DISPLAY");
+    if (!display || strlen(display) == 0) {
+        display = ":0";
+    }
 
     // Check for pkexec (Polkit graphical elevation)
     if (system("which pkexec >/dev/null 2>&1") == 0) {
         char cmd[1024];
-        if (display && wayland) {
-            snprintf(cmd, sizeof(cmd), "pkexec env DISPLAY=%s WAYLAND_DISPLAY=%s %s", display, wayland, GUI_BIN);
-        } else if (display) {
-            snprintf(cmd, sizeof(cmd), "pkexec env DISPLAY=%s %s", display, GUI_BIN);
-        } else {
-            snprintf(cmd, sizeof(cmd), "pkexec %s", GUI_BIN);
-        }
+        snprintf(cmd, sizeof(cmd), "pkexec env DISPLAY=%s GDK_BACKEND=x11 %s", display, GUI_BIN);
         return system(cmd);
     }
 
     // Fallback to sudo
     if (system("which sudo >/dev/null 2>&1") == 0) {
         char cmd[1024];
-        snprintf(cmd, sizeof(cmd), "sudo -E %s", GUI_BIN);
+        snprintf(cmd, sizeof(cmd), "sudo -E env DISPLAY=%s GDK_BACKEND=x11 %s", display, GUI_BIN);
         return system(cmd);
     }
 
