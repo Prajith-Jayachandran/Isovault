@@ -229,6 +229,43 @@ fn init_part1_theme(part1_dev: &str, theme_pack_dir: &Path, reporter: &Reporter)
     Ok(())
 }
 
+fn resolve_asset_path(provided: PathBuf, filename: &str) -> PathBuf {
+    if provided.exists() {
+        return provided;
+    }
+    // 1. Try relative to current executable
+    if let Ok(exe) = std::env::current_exe() {
+        if let Ok(canon) = exe.canonicalize() {
+            let mut cur = canon.as_path();
+            while let Some(parent) = cur.parent() {
+                let candidate = parent.join(filename);
+                if candidate.exists() {
+                    return candidate;
+                }
+                cur = parent;
+            }
+        }
+    }
+    // 2. Try relative to current working directory
+    let cwd_candidate = Path::new(".").join(filename);
+    if cwd_candidate.exists() {
+        return cwd_candidate;
+    }
+    // 3. Try known directories
+    let home = std::env::var("HOME").unwrap_or_default();
+    if !home.is_empty() {
+        let p1 = PathBuf::from(&home).join("Isovault").join(filename);
+        if p1.exists() {
+            return p1;
+        }
+        let p2 = PathBuf::from(&home).join("isovault").join(filename);
+        if p2.exists() {
+            return p2;
+        }
+    }
+    provided
+}
+
 fn sync_part2_efi(part2_dev: &str, efi_dir: &Path, reporter: &Reporter) -> Result<(), String> {
     reporter.report(92, "EFI Template", "Applying master GRUB configuration from template...", "running");
     let mount_dir = Path::new("/tmp/isovault_efi_init");
@@ -246,12 +283,7 @@ fn sync_part2_efi(part2_dev: &str, efi_dir: &Path, reporter: &Reporter) -> Resul
 
     if let Ok(status) = mount_status {
         if status.success() {
-            // Resolve efi_dir (handle symlink /home/prajithj/isovault vs /home/prajithj/Isovault)
-            let actual_efi_dir = if efi_dir.exists() {
-                efi_dir.to_path_buf()
-            } else {
-                PathBuf::from("/home/prajithj/Isovault/efi_pack")
-            };
+            let actual_efi_dir = resolve_asset_path(efi_dir.to_path_buf(), "efi_pack");
 
             let src_grub_cfg = actual_efi_dir.join("grub/grub.cfg");
             let dst_grub_dir = mount_dir.join("grub");
@@ -288,6 +320,10 @@ fn handle_install(
     efi_dir: PathBuf,
     json: bool,
 ) {
+    let boot_dir = resolve_asset_path(boot_dir, "boot");
+    let img_path = resolve_asset_path(img_path, "isovault.disk.img.xz");
+    let theme_dir = resolve_asset_path(theme_dir, "theme_pack");
+    let efi_dir = resolve_asset_path(efi_dir, "efi_pack");
     let reporter = Reporter::new(json);
     reporter.report(5, "Validating", &format!("Validating target device {}...", device), "running");
 
@@ -380,6 +416,9 @@ fn handle_install(
 }
 
 fn handle_update(device: String, boot_dir: PathBuf, img_path: PathBuf, efi_dir: PathBuf, json: bool) {
+    let boot_dir = resolve_asset_path(boot_dir, "boot");
+    let img_path = resolve_asset_path(img_path, "isovault.disk.img.xz");
+    let efi_dir = resolve_asset_path(efi_dir, "efi_pack");
     let reporter = Reporter::new(json);
     reporter.report(5, "Validating", &format!("Verifying existing installation on {}...", device), "running");
 

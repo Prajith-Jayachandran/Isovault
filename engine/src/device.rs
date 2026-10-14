@@ -82,8 +82,16 @@ pub fn check_isovault_installed(disk_path: &str) -> (bool, String, String) {
                 };
 
                 let mut version = "1.1.18".to_string();
-                if let Ok(v) = fs::read_to_string("/home/prajithj/isovault/version") {
-                    version = v.trim().to_string();
+                let candidate_paths = [
+                    "version",
+                    "/home/prajithj/Isovault/version",
+                    "/home/prajithj/isovault/version",
+                ];
+                for path in &candidate_paths {
+                    if let Ok(v) = fs::read_to_string(path) {
+                        version = v.trim().to_string();
+                        break;
+                    }
                 }
 
                 return (true, version, style);

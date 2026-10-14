@@ -3,10 +3,90 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <libgen.h>
+#include <unistd.h>
+#include <limits.h>
+
+#include "isovault_gui_glade.h"
 
 #define PACKAGE_VERSION "1.1.18"
-#define ENGINE_PATH "/home/prajithj/isovault/engine/target/release/isovault_engine"
-#define GLADE_PATH "/home/prajithj/isovault/gui/isovault_gui.glade"
+
+static const char *get_base_dir(void) {
+    static char base_dir[PATH_MAX] = {0};
+    if (base_dir[0] != '\0') return base_dir;
+
+    char exe_path[PATH_MAX] = {0};
+    ssize_t len = readlink("/proc/self/exe", exe_path, sizeof(exe_path) - 1);
+    if (len > 0) {
+        exe_path[len] = '\0';
+        char *dir = dirname(exe_path);
+        char temp[PATH_MAX];
+        strncpy(temp, dir, sizeof(temp) - 1);
+        char *bname = basename(temp);
+        if (strcmp(bname, "gui") == 0) {
+            strncpy(base_dir, dirname(dir), sizeof(base_dir) - 1);
+        } else {
+            strncpy(base_dir, dir, sizeof(base_dir) - 1);
+        }
+    } else {
+        if (getcwd(base_dir, sizeof(base_dir) - 1) == NULL) {
+            strcpy(base_dir, ".");
+        }
+    }
+    return base_dir;
+}
+
+static const char *get_engine_path(void) {
+    static char engine_path[PATH_MAX * 2] = {0};
+    if (engine_path[0] != '\0') return engine_path;
+
+    const char *base = get_base_dir();
+    char candidate[PATH_MAX * 2];
+
+    // 1. <base_dir>/engine/target/release/isovault_engine
+    snprintf(candidate, sizeof(candidate), "%s/engine/target/release/isovault_engine", base);
+    if (access(candidate, X_OK) == 0) {
+        g_strlcpy(engine_path, candidate, sizeof(engine_path));
+        return engine_path;
+    }
+
+    // 2. <base_dir>/engine/target/debug/isovault_engine
+    snprintf(candidate, sizeof(candidate), "%s/engine/target/debug/isovault_engine", base);
+    if (access(candidate, X_OK) == 0) {
+        g_strlcpy(engine_path, candidate, sizeof(engine_path));
+        return engine_path;
+    }
+
+    // 3. ./engine/target/release/isovault_engine
+    if (access("./engine/target/release/isovault_engine", X_OK) == 0) {
+        strcpy(engine_path, "./engine/target/release/isovault_engine");
+        return engine_path;
+    }
+
+    // 4. Check known home directory paths
+    const char *home = getenv("HOME");
+    if (home) {
+        snprintf(candidate, sizeof(candidate), "%s/Isovault/engine/target/release/isovault_engine", home);
+        if (access(candidate, X_OK) == 0) {
+            g_strlcpy(engine_path, candidate, sizeof(engine_path));
+            return engine_path;
+        }
+        snprintf(candidate, sizeof(candidate), "%s/isovault/engine/target/release/isovault_engine", home);
+        if (access(candidate, X_OK) == 0) {
+            g_strlcpy(engine_path, candidate, sizeof(engine_path));
+            return engine_path;
+        }
+        snprintf(candidate, sizeof(candidate), "%s/.cargo/bin/isovault_engine", home);
+        if (access(candidate, X_OK) == 0) {
+            g_strlcpy(engine_path, candidate, sizeof(engine_path));
+            return engine_path;
+        }
+    }
+
+    // 5. Default candidate
+    snprintf(engine_path, sizeof(engine_path), "%s/engine/target/release/isovault_engine", base);
+    return engine_path;
+}
 
 typedef struct {
     char name[64];
@@ -155,7 +235,7 @@ static void refresh_devices(AppWidgets *app) {
     gint exit_status = 0;
     GError *error = NULL;
 
-    const gchar *argv[] = {ENGINE_PATH, "list", "--json", NULL, NULL};
+    const gchar *argv[] = {get_engine_path(), "list", "--json", NULL, NULL};
     if (show_all) {
         argv[3] = "--all";
     }
@@ -348,7 +428,7 @@ static void on_install_clicked(GtkButton *btn, gpointer user_data) {
     const gchar *fs = (gtk_combo_box_get_active(GTK_COMBO_BOX(app->fs_combo)) == 1) ? "fat32" : "exfat";
 
     const gchar *argv[] = {
-        ENGINE_PATH,
+        get_engine_path(),
         "install",
         "--device", dev->path,
         "--style", style,
@@ -380,7 +460,7 @@ static void on_update_clicked(GtkButton *btn, gpointer user_data) {
     if (resp != GTK_RESPONSE_YES) return;
 
     const gchar *argv[] = {
-        ENGINE_PATH,
+        get_engine_path(),
         "update",
         "--device", dev->path,
         "--json",
@@ -391,15 +471,57 @@ static void on_update_clicked(GtkButton *btn, gpointer user_data) {
 }
 
 int main(int argc, char *argv[]) {
-    gtk_init(&argc, &argv);
+    if (!gtk_init_check(&argc, &argv)) {
+        g_printerr("Error: Cannot open display '%s'. Please run in a graphical desktop session (X11 or Wayland).\n",
+                   getenv("DISPLAY") ? getenv("DISPLAY") : "null");
+        return 1;
+    }
 
     GtkBuilder *builder = gtk_builder_new();
     GError *error = NULL;
+    gboolean loaded = FALSE;
 
-    if (!gtk_builder_add_from_file(builder, GLADE_PATH, &error)) {
-        g_printerr("Failed to load Glade file: %s\n", error ? error->message : "unknown");
-        if (error) g_error_free(error);
-        return 1;
+    const char *base = get_base_dir();
+    char glade_candidate[PATH_MAX * 2];
+
+    // Candidate 1: <base>/gui/isovault_gui.glade
+    snprintf(glade_candidate, sizeof(glade_candidate), "%s/gui/isovault_gui.glade", base);
+    if (access(glade_candidate, R_OK) == 0) {
+        loaded = gtk_builder_add_from_file(builder, glade_candidate, NULL);
+    }
+
+    // Candidate 2: <base>/isovault_gui.glade
+    if (!loaded) {
+        snprintf(glade_candidate, sizeof(glade_candidate), "%s/isovault_gui.glade", base);
+        if (access(glade_candidate, R_OK) == 0) {
+            loaded = gtk_builder_add_from_file(builder, glade_candidate, NULL);
+        }
+    }
+
+    // Candidate 3: ./gui/isovault_gui.glade or ./isovault_gui.glade
+    if (!loaded && access("./gui/isovault_gui.glade", R_OK) == 0) {
+        loaded = gtk_builder_add_from_file(builder, "./gui/isovault_gui.glade", NULL);
+    }
+    if (!loaded && access("./isovault_gui.glade", R_OK) == 0) {
+        loaded = gtk_builder_add_from_file(builder, "./isovault_gui.glade", NULL);
+    }
+
+    // Candidate 4: Home directory fallbacks
+    const char *home = getenv("HOME");
+    if (!loaded && home) {
+        snprintf(glade_candidate, sizeof(glade_candidate), "%s/Isovault/gui/isovault_gui.glade", home);
+        if (access(glade_candidate, R_OK) == 0) {
+            loaded = gtk_builder_add_from_file(builder, glade_candidate, NULL);
+        }
+    }
+
+    // Guaranteed fallback: load embedded Glade UI definition from header
+    if (!loaded) {
+        if (!gtk_builder_add_from_string(builder, (const gchar *)isovault_gui_glade, isovault_gui_glade_len, &error)) {
+            g_printerr("Failed to load embedded Glade interface: %s\n", error ? error->message : "unknown");
+            if (error) g_error_free(error);
+            return 1;
+        }
     }
 
     AppWidgets *app = g_new0(AppWidgets, 1);
