@@ -68,7 +68,7 @@ pub fn create_partitions(
                 &geom.part1_start.to_string(),
                 &geom.part1_end.to_string(),
                 "mkpart",
-                "IsoVaultEFI",
+                "VTOYEFI",
                 "fat16",
                 &geom.part2_start.to_string(),
                 &geom.part2_end.to_string(),

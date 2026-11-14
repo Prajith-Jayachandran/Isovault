@@ -307,10 +307,6 @@ fn init_part1_theme(part1_dev: &str, theme_pack_dir: &Path, reporter: &Reporter)
 
     // Source assets from theme pack
     let src_json = theme_pack_dir.join("isovault/isovault.json");
-    let src_txt = theme_pack_dir.join("isovault/theme/theme.txt");
-    let src_png = theme_pack_dir.join("isovault/theme/background.png");
-    let src_jpg = theme_pack_dir.join("isovault/theme/background.jpg");
-    let src_sel = theme_pack_dir.join("isovault/theme/select_c.png");
     let src_fonts = theme_pack_dir.join("isovault/theme/fonts");
 
     // Copy JSON config
@@ -318,18 +314,17 @@ fn init_part1_theme(part1_dev: &str, theme_pack_dir: &Path, reporter: &Reporter)
         let _ = fs::copy(&src_json, isovault_dir.join("isovault.json"));
     }
 
-    // Copy theme assets
-    if src_txt.exists() {
-        let _ = fs::copy(&src_txt, theme_dir.join("theme.txt"));
-    }
-    if src_png.exists() {
-        let _ = fs::copy(&src_png, theme_dir.join("background.png"));
-    }
-    if src_jpg.exists() {
-        let _ = fs::copy(&src_jpg, theme_dir.join("background.jpg"));
-    }
-    if src_sel.exists() {
-        let _ = fs::copy(&src_sel, theme_dir.join("select_c.png"));
+    // Copy theme assets (images, theme.txt, 9-slice kinetic reticle pixmaps)
+    let src_theme_dir = theme_pack_dir.join("isovault/theme");
+    if let Ok(entries) = fs::read_dir(&src_theme_dir) {
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_file() {
+                if let Some(file_name) = path.file_name() {
+                    let _ = fs::copy(&path, theme_dir.join(file_name));
+                }
+            }
+        }
     }
 
     // Copy fonts
@@ -473,10 +468,18 @@ fn sync_part2_efi(part2_dev: &str, disk_dev: &str, efi_dir: &Path, reporter: &Re
         let src_font2 = actual_efi_dir.join("grub/themes/isovault/fonts/SpaceGrotesk-18.pf2");
         if src_font1.exists() {
             let _ = fs::copy(&src_font1, dst_fonts_dir.join("SpaceGrotesk-16.pf2"));
-            let _ = fs::copy(&src_font1, dst_fonts_dir.join("unicode.pf2"));
         }
         if src_font2.exists() {
             let _ = fs::copy(&src_font2, dst_fonts_dir.join("SpaceGrotesk-18.pf2"));
+        }
+        // Preserve proper unicode.pf2 and ascii.pf2 from efi_pack if present
+        let src_unicode = actual_efi_dir.join("grub/fonts/unicode.pf2");
+        if src_unicode.exists() && (!dst_fonts_dir.join("unicode.pf2").exists() || fs::metadata(dst_fonts_dir.join("unicode.pf2")).map(|m| m.len() < 50000).unwrap_or(true)) {
+            let _ = fs::copy(&src_unicode, dst_fonts_dir.join("unicode.pf2"));
+        }
+        let src_ascii = actual_efi_dir.join("grub/fonts/ascii.pf2");
+        if src_ascii.exists() && !dst_fonts_dir.join("ascii.pf2").exists() {
+            let _ = fs::copy(&src_ascii, dst_fonts_dir.join("ascii.pf2"));
         }
 
         // 4. Ensure backup isovault.json exists on Partition 2 for zero-failure fallback

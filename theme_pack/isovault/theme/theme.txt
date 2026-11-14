@@ -23,3 +23,13 @@ message-color: "#f2f2f2"
   scrollbar = true
   scrollbar_width = 8
 }
+
++ label {
+  top = 93%
+  left = 22%
+  width = 56%
+  align = "center"
+  text = "ISOVAULT // NEXT-GEN MULTIBOOT PLATFORM"
+  color = "#00f0ff"
+  font = "Space Grotesk Regular 16"
+}

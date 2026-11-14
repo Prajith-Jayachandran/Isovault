@@ -58,7 +58,7 @@ Traditional bootable media creation tools write ISO images directly across the p
 
 IsoVault radically alters this paradigm by splitting the drive into two distinct partitions:
 1. **Partition 1 (Storage & Payloads)**: Formatted as **exFAT** or **FAT32**, this partition occupies the entire drive (minus 32MB) and is where users freely copy, organize, and delete raw `.iso` files as simple files.
-2. **Partition 2 (EFI System Bootloader)**: A protected 32MB FAT partition (`ISOVAULTEFI`) located at the physical end of the disk containing signed UEFI bootloaders (`grubx64.efi`, `grubia32.efi`), BIOS MBR core stages, and the IsoVault GRUB2 runtime engine.
+2. **Partition 2 (EFI System Bootloader)**: A protected 32MB FAT partition (`VTOYEFI` compatibility ESP) located at the physical end of the disk containing signed UEFI bootloaders (`grubx64.efi`, `grubia32.efi`), BIOS MBR core stages, and the IsoVault GRUB2 runtime engine.
 
 When booted, IsoVault intercepts kernel requests and leverages native loopback and Linux device-mapper (`dmsetup`) injection (`ventoy.cpio`) to present the raw ISO directly to the guest kernel in memory, achieving 100% genuine hardware-level installation speeds.
 
@@ -75,7 +75,7 @@ flowchart TD
             ISOs["Raw ISO Files\n(arch.iso, win11.iso, ubuntu.iso)"]
             HiddenCfg["Hidden Config Directory (/isovault)\n• theme.txt & fonts\n• drivers/ (storage & net)\n• persistence/ & audits/"]
         end
-        subgraph Part2["Partition 2: EFI System (32MB FAT - ISOVAULTEFI)"]
+        subgraph Part2["Partition 2: EFI System (32MB FAT - ESP)"]
             EFI["Signed UEFI Loaders\n(grubx64_real.efi, grubia32_real.efi)"]
             GRUB["IsoVault GRUB2 Template\n• SMBIOS Profiler\n• Pre-Flight Health Audit\n• QR Panic Matrix"]
         end
@@ -178,7 +178,7 @@ IsoVault operates under a clean, unified identity with zero legacy artifacts:
 - **Dual-Layer Hiding Technology**:
   1. **DOS FAT/exFAT Attributes (`ATTR_HIDDEN = 0x02`)**: [isovault_engine](file:///home/prajithj/Isovault/engine/src/main.rs#L400-L425) executes the `FAT_IOCTL_SET_ATTRIBUTES` kernel ioctl on `/isovault` and system metadata files. When plugged into Microsoft Windows or macOS, the configuration directories are invisible by default.
   2. **Linux Desktop Standard (`.hidden`)**: Generates a standard `.hidden` file at the root of Partition 1. Linux desktop file managers (GNOME Files/Nautilus, KDE Dolphin, XFCE Thunar) automatically conceal system files.
-- **Protected EFI Label**: Partition 2 is stamped with the clean volume label `ISOVAULTEFI`.
+- **Protected EFI Label**: Partition 2 is stamped with the standardized EFI identifier `VTOYEFI` for zero-failure UEFI bootloader handoff, while the visible user Partition 1 is labeled `IsoVault`.
 
 ---
 
@@ -223,7 +223,7 @@ Standard bootloaders often fail when booting modern Arch-based rolling releases 
 ├── IsoVault2Disk.sh                # Main CLI management & formatting script
 ├── isovault                        # Convenience symlink -> IsoVault2Disk.sh
 ├── isovault-gui                    # Convenience symlink -> IsoVaultGUI
-├── isovault.disk.img.xz            # Master 32MB EFI partition payload image (ISOVAULTEFI)
+├── isovault.disk.img.xz            # Master 32MB EFI partition payload image (ESP)
 ├── isovault_4k.disk.img.xz         # Native 4Kn sector EFI partition payload image
 ├── version                         # Project release version tracking (1.1.18)
 │
