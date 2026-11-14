@@ -112,6 +112,7 @@ typedef struct {
     GtkWidget *show_all_check;
     GtkWidget *install_btn;
     GtkWidget *update_btn;
+    GtkWidget *test_vm_btn;
     GtkWidget *progress_bar;
     GtkWidget *status_label;
 
@@ -151,6 +152,7 @@ static void update_device_info_display(AppWidgets *app) {
         gtk_label_set_text(GTK_LABEL(app->device_ver_label), "None");
         gtk_widget_set_sensitive(app->install_btn, FALSE);
         gtk_widget_set_sensitive(app->update_btn, FALSE);
+        gtk_widget_set_sensitive(app->test_vm_btn, FALSE);
         return;
     }
 
@@ -165,6 +167,7 @@ static void update_device_info_display(AppWidgets *app) {
     }
 
     gtk_widget_set_sensitive(app->install_btn, !app->is_working);
+    gtk_widget_set_sensitive(app->test_vm_btn, !app->is_working);
 }
 
 static void parse_devices_json(AppWidgets *app, const gchar *json_str) {
@@ -272,6 +275,7 @@ static void set_ui_busy(AppWidgets *app, gboolean busy) {
     gtk_widget_set_sensitive(app->show_all_check, !busy);
     gtk_widget_set_sensitive(app->install_btn, !busy);
     gtk_widget_set_sensitive(app->update_btn, !busy);
+    gtk_widget_set_sensitive(app->test_vm_btn, !busy);
 
     if (busy) {
         gtk_progress_bar_set_fraction(GTK_PROGRESS_BAR(app->progress_bar), 0.0);
@@ -470,6 +474,105 @@ static void on_update_clicked(GtkButton *btn, gpointer user_data) {
     run_engine_command(app, argv);
 }
 
+static const char *find_ovmf_firmware(void) {
+    static const char *candidates[] = {
+        "/usr/share/edk2/x64/OVMF_CODE.4m.fd",
+        "/usr/share/edk2/x64/OVMF.4m.fd",
+        "/usr/share/edk2-ovmf/x64/OVMF_CODE.fd",
+        "/usr/share/ovmf/x64/OVMF.fd",
+        "/usr/share/OVMF/OVMF_CODE.fd",
+        "/usr/share/ovmf/OVMF.fd",
+        NULL
+    };
+    for (int i = 0; candidates[i]; i++) {
+        if (access(candidates[i], R_OK) == 0) {
+            return candidates[i];
+        }
+    }
+    return NULL;
+}
+
+static void on_test_vm_clicked(GtkButton *btn, gpointer user_data) {
+    AppWidgets *app = (AppWidgets *)user_data;
+    DeviceInfo *dev = get_selected_device(app);
+    if (!dev) return;
+
+    if (access("/usr/bin/qemu-system-x86_64", X_OK) != 0) {
+        GtkWidget *dlg = gtk_message_dialog_new(
+            GTK_WINDOW(app->main_window),
+            GTK_DIALOG_MODAL | GTK_DIALOG_DESTROY_WITH_PARENT,
+            GTK_MESSAGE_WARNING,
+            GTK_BUTTONS_OK,
+            "QEMU is not installed.\n\nPlease install QEMU to use Live VM Preview:\n"
+            "• Arch / CachyOS: sudo pacman -S qemu-desktop edk2-ovmf\n"
+            "• Ubuntu / Debian: sudo apt install qemu-system-x86 ovmf\n"
+            "• Fedora: sudo dnf install qemu-system-x86 edk2-ovmf"
+        );
+        gtk_dialog_run(GTK_DIALOG(dlg));
+        gtk_widget_destroy(dlg);
+        return;
+    }
+
+    const char *ovmf = find_ovmf_firmware();
+    gboolean has_kvm = (access("/dev/kvm", R_OK | W_OK) == 0);
+
+    GPtrArray *argv_arr = g_ptr_array_new();
+    g_ptr_array_add(argv_arr, (gpointer)"qemu-system-x86_64");
+
+    if (has_kvm) {
+        g_ptr_array_add(argv_arr, (gpointer)"-enable-kvm");
+        g_ptr_array_add(argv_arr, (gpointer)"-cpu");
+        g_ptr_array_add(argv_arr, (gpointer)"host");
+    } else {
+        g_ptr_array_add(argv_arr, (gpointer)"-cpu");
+        g_ptr_array_add(argv_arr, (gpointer)"qemu64");
+    }
+
+    g_ptr_array_add(argv_arr, (gpointer)"-m");
+    g_ptr_array_add(argv_arr, (gpointer)"4096");
+    g_ptr_array_add(argv_arr, (gpointer)"-smp");
+    g_ptr_array_add(argv_arr, (gpointer)"4");
+
+    if (ovmf) {
+        g_ptr_array_add(argv_arr, (gpointer)"-drive");
+        char ovmf_arg[512];
+        snprintf(ovmf_arg, sizeof(ovmf_arg), "if=pflash,format=raw,readonly=on,file=%s", ovmf);
+        g_ptr_array_add(argv_arr, g_strdup(ovmf_arg));
+    }
+
+    char drive_arg[512];
+    snprintf(drive_arg, sizeof(drive_arg), "file=%s,format=raw,cache=none,if=virtio,snapshot=on", dev->path);
+    g_ptr_array_add(argv_arr, (gpointer)"-drive");
+    g_ptr_array_add(argv_arr, g_strdup(drive_arg));
+
+    g_ptr_array_add(argv_arr, (gpointer)"-vga");
+    g_ptr_array_add(argv_arr, (gpointer)"virtio");
+
+    g_ptr_array_add(argv_arr, (gpointer)"-name");
+    char name_arg[256];
+    snprintf(name_arg, sizeof(name_arg), "IsoVault Live Preview [%s]", dev->path);
+    g_ptr_array_add(argv_arr, g_strdup(name_arg));
+    g_ptr_array_add(argv_arr, NULL);
+
+    GError *error = NULL;
+    if (g_spawn_async(NULL, (gchar **)argv_arr->pdata, NULL, G_SPAWN_SEARCH_PATH, NULL, NULL, NULL, &error)) {
+        gtk_label_set_text(GTK_LABEL(app->status_label), "Live VM Preview launched in sandboxed mode (snapshot=on).");
+    } else {
+        GtkWidget *dlg = gtk_message_dialog_new(
+            GTK_WINDOW(app->main_window),
+            GTK_DIALOG_MODAL,
+            GTK_MESSAGE_ERROR,
+            GTK_BUTTONS_OK,
+            "Failed to launch QEMU VM: %s",
+            error ? error->message : "unknown"
+        );
+        gtk_dialog_run(GTK_DIALOG(dlg));
+        gtk_widget_destroy(dlg);
+        if (error) g_error_free(error);
+    }
+    g_ptr_array_free(argv_arr, TRUE);
+}
+
 int main(int argc, char *argv[]) {
     if (!gtk_init_check(&argc, &argv)) {
         g_printerr("Error: Cannot open display '%s'. Please run in a graphical desktop session (X11 or Wayland).\n",
@@ -537,6 +640,7 @@ int main(int argc, char *argv[]) {
     app->show_all_check = GTK_WIDGET(gtk_builder_get_object(builder, "show_all_check"));
     app->install_btn = GTK_WIDGET(gtk_builder_get_object(builder, "install_btn"));
     app->update_btn = GTK_WIDGET(gtk_builder_get_object(builder, "update_btn"));
+    app->test_vm_btn = GTK_WIDGET(gtk_builder_get_object(builder, "test_vm_btn"));
     app->progress_bar = GTK_WIDGET(gtk_builder_get_object(builder, "progress_bar"));
     app->status_label = GTK_WIDGET(gtk_builder_get_object(builder, "status_label"));
 
@@ -549,6 +653,7 @@ int main(int argc, char *argv[]) {
     g_signal_connect(app->show_all_check, "toggled", G_CALLBACK(on_show_all_toggled), app);
     g_signal_connect(app->install_btn, "clicked", G_CALLBACK(on_install_clicked), app);
     g_signal_connect(app->update_btn, "clicked", G_CALLBACK(on_update_clicked), app);
+    g_signal_connect(app->test_vm_btn, "clicked", G_CALLBACK(on_test_vm_clicked), app);
 
     refresh_devices(app);
 

@@ -148,6 +148,7 @@ name = "isovault_engine"
 version = "1.1.18"
 dependencies = [
  "clap",
+ "libc",
  "rand",
  "serde",
  "serde_json",

@@ -12,6 +12,8 @@ pub fn check_dependencies() -> Vec<DependencyCheck> {
         ("Partprobe Partition Synchronizer", "partprobe"),
         ("FAT Filesystem Formatter", "mkfs.fat"),
         ("exFAT Filesystem Formatter", "mkfs.exfat"),
+        ("ext4 Filesystem Formatter", "mkfs.ext4"),
+        ("SHA-256 Checksum Tool", "sha256sum"),
         ("Block Device Lister", "lsblk"),
         ("C Compiler", "gcc"),
         ("Package Config", "pkg-config"),

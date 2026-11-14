@@ -252,6 +252,15 @@
                 </style>
               </object>
             </child>
+            <child>
+              <object class="GtkButton" id="test_vm_btn">
+                <property name="label">Test in VM</property>
+                <property name="visible">True</property>
+                <property name="can_focus">True</property>
+                <property name="width_request">130</property>
+                <property name="height_request">40</property>
+              </object>
+            </child>
           </object>
         </child>
 
